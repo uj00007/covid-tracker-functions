@@ -24,9 +24,10 @@ exports.addMessage = functions.https.onRequest(async (req, res) => {
 
 exports.sendNotification = functions.https.onRequest(async (req, res) => {
   // Grab the text parameter.
-  // const original = req.query.text;
+  // const userToken = req.query.token;
+  const userId = req.query.id;
   // Push the new message into the Realtime Database using the Firebase Admin SDK.
-  const snapshot = await admin.database().ref("/hotspots");
+  const snapshot = await admin.database().ref("/users");
   console.log(snapshot);
   const value = await snapshot.once("value").then((dataSnapshot) => {
     // handle read data.
@@ -34,7 +35,15 @@ exports.sendNotification = functions.https.onRequest(async (req, res) => {
     return dataSnapshot;
   });
   console.log(value.val());
-  res.json(value.toJSON());
+  const users = value.val();
+  let adminusertokens = [];
+  let user = users[userId];
+  for (let i of users) {
+    if (i["is_admin"]) {
+      adminusertokens.push(i["token"]);
+    }
+  }
+
   //   console.log(snapshot.once('value').then);
 
   //   return snapshot.once("value").then((snapshot) => {
@@ -42,16 +51,64 @@ exports.sendNotification = functions.https.onRequest(async (req, res) => {
   //     return snapshot;
   //   });
   // Notification details.
-  //   const payload = {
-  //     notification: {
-  //       title: "You have a new follower!",
-  //       body: `${follower.displayName} is now following you.`,
-  //       icon: follower.photoURL,
-  //     },
-  //   };
+  console.log(user["name"]);
+  console.log(user["token"]);
+  console.log(adminusertokens);
 
-  //   const response = await admin.messaging().sendToDevice(tokens, payload);
+  let username = user["name"] ? user["name"] : "user";
+  const payloadForAdmin = {
+    notification: {
+      title: "Alert!!!",
+      body: `User ${username} is in a hotspot zone..!!`,
+      sound: "soundtone_notification.mp3",
+      android_channel_id: "1",
+    },
+  };
+  const payloadForUser = {
+    notification: {
+      title: "Alert!!!",
+      body: `You are in a hotspot zone..!!`,
+      sound: "soundtone_notification.mp3",
+      android_channel_id: "1",
+    },
+  };
+  const response2 = await admin
+    .messaging()
+    .sendToDevice(user["token"], payloadForUser);
+
+  if (adminusertokens && adminusertokens.length > 0) {
+    console.log("gothere in admin");
+    const response = await admin
+      .messaging()
+      .sendToDevice(adminusertokens, payloadForAdmin);
+  }
+
+  const response3 = await admin
+    .messaging()
+    .sendToDevice(adminusertokens, payloadForAdmin);
 
   // Redirect with 303 SEE OTHER to the URL of the pushed object in the Firebase console.
   //   res.redirect(303, snapshot.ref.toString());
+  res.json(value.toJSON());
+});
+
+exports.updateLocation = functions.https.onRequest(async (req, res) => {
+  // location object would contain lat long, updated and user id (email) from shared preference basically
+  const location = req.body;
+
+  //after that .. we need to get the hotspots list from db, search for nearest hotspots , calculate the distance , if alert is there then...
+  //update that user object's is safe param to false..
+  /// send notification to user..
+  //send notification to admin..
+  console.log(location);
+  // Push the new message into the Realtime Database using the Firebase Admin SDK.
+  // const snapshot = await admin.database().ref("/hotspots");
+  // console.log(snapshot);
+  // const value = await snapshot.once("value").then((dataSnapshot) => {
+  //   // handle read data.
+  //   console.log(dataSnapshot);
+  //   return dataSnapshot;
+  // });
+  // console.log(value.val());
+  res.send("Location updated successfully");
 });
