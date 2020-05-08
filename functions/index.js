@@ -200,3 +200,124 @@ exports.updateLocation = functions.https.onRequest(async (req, res) => {
   // console.log(value.val());
   res.send("Location updated successfully");
 });
+
+exports.makeSuperAdmin = functions.https.onRequest(async (req, res) => {
+  // Grab the text parameter.
+  // const userToken = req.query.token;
+  const email = req.query.email;
+  const mobile = req.query.mobile;
+  const makeAdmin = req.query.makeadmin;
+  const makeSuperAdmin = req.query.makesuperadmin;
+
+  // Push the new message into the Realtime Database using the Firebase Admin SDK.
+  const snapshot = await admin.database().ref("/users");
+  // console.log(snapshot);
+  const value = await snapshot.once("value").then((dataSnapshot) => {
+    // handle read data.
+    // console.log(dataSnapshot);
+    return dataSnapshot;
+  });
+  console.log(value.val());
+  const users = value.val();
+  let user;
+  for (let i of users) {
+    if (i["email_id"] === email || i["mobile_number"] === mobile.toString()) {
+      user = i;
+    }
+  }
+  if (user) {
+    if (makeSuperAdmin) {
+      user["is_admin"] = true;
+      user["is_super_admin"] = true;
+    } else if (!makeSuperAdmin && makeAdmin) {
+      user["is_admin"] = true;
+      user["is_super_admin"] = false;
+    } else {
+      user["is_admin"] = false;
+      user["is_super_admin"] = false;
+    }
+    const userid = user["id"];
+    console.log("changed user");
+    console.log(user);
+    const snapshot2 = await admin.database().ref(`/users/${userid}`).set(user);
+  }
+
+  res.json(user ? user : {});
+});
+
+exports.getHotspots = functions.https.onRequest(async (req, res) => {
+  // Push the new message into the Realtime Database using the Firebase Admin SDK.
+  const snapshot = await admin.database().ref("/hotspots");
+  // console.log(snapshot);
+  const value = await snapshot.once("value").then((dataSnapshot) => {
+    // handle read data.
+    // console.log(dataSnapshot);
+    return dataSnapshot;
+  });
+  console.log(value.val());
+
+  res.json(value.toJSON());
+});
+
+exports.updateUser = functions.https.onRequest(async (req, res) => {
+  const reqBody = req.body;
+  console.log(reqBody);
+  if (reqBody && reqBody["id"]) {
+    const snapshot = await admin.database().ref(`/users/${reqBody["id"]}`);
+    // console.log(snapshot);
+    const value = await snapshot.once("value").then((dataSnapshot) => {
+      // handle read data.
+      // console.log(dataSnapshot);
+      return dataSnapshot;
+    });
+    console.log(value.val()); // this will have the user value
+    let user = value.val();
+    user = { ...user, ...reqBody };
+    const snapshot2 = await admin
+      .database()
+      .ref(`/users/${user["id"]}`)
+      .set(user);
+    console.log(snapshot2);
+
+    res.json(user);
+  } else {
+    res.status(404).send("Sorry, something went wrong");
+  }
+});
+
+exports.addUser = functions.https.onRequest(async (req, res) => {
+  const reqBody = req.body;
+  console.log(reqBody);
+  if (reqBody && reqBody["email_id"] && reqBody["email_id"] !== "") {
+    const snapshot = await admin.database().ref(`/users`);
+    // console.log(snapshot);
+    const value = await snapshot.once("value").then((dataSnapshot) => {
+      // handle read data.
+      // console.log(dataSnapshot);
+      return dataSnapshot;
+    }); // this will have the user value
+    let users = value.val();
+    let user;
+    for (let i of users) {
+      if (i["email_id"] === reqBody["email_id"]) {
+        user = i;
+        break;
+      }
+    }
+    if (user) {
+      user = { ...user, ...reqBody };
+    } else {
+      user = reqBody;
+      user["id"] = users.length;
+    }
+
+    const snapshot2 = await admin
+      .database()
+      .ref(`/users/${user["id"]}`)
+      .set(user);
+    console.log(snapshot2);
+    res.json(user);
+  } else {
+    res.status(404).send("Sorry, something went wrong");
+  }
+});
